@@ -83,7 +83,7 @@ function Invoke-NetlifyApi([string]$Path, [string]$Method, [string]$Token, $Body
   } catch {
     $Status = ""
     if ($_.Exception.Response -and $_.Exception.Response.StatusCode) { $Status = " (HTTP $([int]$_.Exception.Response.StatusCode))" }
-    throw "Netlify request failed$Status. Check that the personal access token and site ID are correct, and that the token can manage this site."
+    throw "Netlify request failed$Status for $Method $Path. Check that the token can manage this site and that the requested operation is valid."
   }
 }
 
@@ -162,7 +162,10 @@ try {
     @{ key = "NETLIFY_ACCOUNT_ID"; value = $AccountId; secret = $false }
   )
   Set-NetlifyVariables $NetlifyToken $SiteId $AccountId $NetlifyVariables
-  $null = Invoke-NetlifyApi "/sites/$([Uri]::EscapeDataString($SiteId))/builds" "POST" $NetlifyToken @{}
+  # A repository build is triggered with an empty POST. Sending JSON `{}` here
+  # is rejected by Netlify's build endpoint with HTTP 422 (it expects multipart
+  # form data only when uploading a ZIP).
+  $null = Invoke-NetlifyApi "/sites/$([Uri]::EscapeDataString($SiteId))/builds" "POST" $NetlifyToken
   Write-Host "Netlify variables are configured and a fresh deploy was queued." -ForegroundColor Green
 
   Write-Step "GitHub Actions secrets"
