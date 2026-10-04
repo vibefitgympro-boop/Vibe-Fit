@@ -96,10 +96,18 @@ function Set-NetlifyVariables([string]$Token, [string]$SiteId, [string]$AccountI
   $ToCreate = @()
 
   foreach ($Variable in $Variables) {
+    $ValueContext = if ($Variable.secret) { "production" } else { "all" }
     $Entry = @{
       key = $Variable.key
-      values = @(@{ context = "all"; value = $Variable.value })
+      values = @(@{ context = $ValueContext; value = $Variable.value })
       is_secret = [bool]$Variable.secret
+    }
+    if ($Variable.secret) {
+      # Netlify Secrets Controller requires explicit contexts and scopes and
+      # disallows the post-processing scope for secrets. Use the full remaining
+      # scope set for compatibility with plans that do not support granular
+      # scopes; the values remain secrets and are only set for production.
+      $Entry.scopes = @("builds", "functions", "runtime")
     }
     $EncodedKey = [Uri]::EscapeDataString($Variable.key)
     if ($Existing.ContainsKey($Variable.key)) {
